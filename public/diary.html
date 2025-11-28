@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Time Capsule Diary - Your Notes</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header class="diary-header">
+      <h1 class="pixel-title">time capsule diary</h1>
+      <div class="header-buttons">
+        <button class="pixel-button" onclick="showNewNoteForm()">create new note</button>
+        <button class="pixel-button pixel-button-secondary" onclick="window.location.href='index.html'">back to title</button>
+      </div>
+    </header>
+
+    <div class="search-container">
+      <input 
+        type="text" 
+        id="searchInput" 
+        class="pixel-input" 
+        placeholder="search notes..."
+        onkeyup="filterNotes()"
+      >
+    </div>
+
+    <div id="notesContainer" class="notes-container">
+      <p class="loading-text">Loading your time capsule...</p>
+    </div>
+
+    <!-- New Note Modal -->
+    <div id="noteModal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="closeNoteForm()">&times;</span>
+        <h2 class="pixel-subtitle">write your note</h2>
+        <textarea 
+          id="noteContent" 
+          class="pixel-textarea" 
+          placeholder="What do you want to remember?"
+          rows="10"
+        ></textarea>
+        <div class="modal-buttons">
+          <button class="pixel-button" onclick="saveNote()">save</button>
+          <button class="pixel-button pixel-button-secondary" onclick="closeNoteForm()">cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
+
