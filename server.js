@@ -8,7 +8,6 @@ const NOTES_FILE = path.join(__dirname, 'notes.json');
 
 // Middleware
 app.use(express.json());
-app.use(express.static('public'));
 
 // Initialize notes file if it doesn't exist
 if (!fs.existsSync(NOTES_FILE)) {
@@ -37,7 +36,7 @@ function writeNotes(notes) {
   }
 }
 
-// API Routes
+// API Routes (must be before static middleware)
 
 // Get all notes
 app.get('/api/notes', (req, res) => {
@@ -58,22 +57,28 @@ app.get('/api/notes/:id', (req, res) => {
 
 // Create a new note
 app.post('/api/notes', (req, res) => {
-  const { content, author } = req.body;
+  const { content, author, name } = req.body;
+  console.log('Received note data:', { content, author, name }); // Debug
   if (!content || content.trim() === '') {
     return res.status(400).json({ error: 'Note content is required' });
   }
 
   const notes = readNotes();
+  const trimmedName = (name && typeof name === 'string' && name.trim().length > 0) ? name.trim() : null;
   const newNote = {
     id: Date.now().toString(),
     content: content.trim(),
     author: author || 'Anonymous',
+    name: trimmedName,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
 
+  console.log('Creating new note:', newNote); // Debug
+
   notes.push(newNote);
   if (writeNotes(notes)) {
+    console.log('Note saved, returning:', newNote); // Debug
     res.status(201).json(newNote);
   } else {
     res.status(500).json({ error: 'Failed to save note' });
@@ -82,7 +87,7 @@ app.post('/api/notes', (req, res) => {
 
 // Update a note
 app.put('/api/notes/:id', (req, res) => {
-  const { content } = req.body;
+  const { content, name } = req.body;
   if (!content || content.trim() === '') {
     return res.status(400).json({ error: 'Note content is required' });
   }
@@ -95,6 +100,7 @@ app.put('/api/notes/:id', (req, res) => {
   }
 
   notes[noteIndex].content = content.trim();
+  notes[noteIndex].name = name && name.trim() ? name.trim() : null;
   notes[noteIndex].updatedAt = new Date().toISOString();
 
   if (writeNotes(notes)) {
@@ -119,6 +125,9 @@ app.delete('/api/notes/:id', (req, res) => {
     res.status(500).json({ error: 'Failed to delete note' });
   }
 });
+
+// Static files (must be after API routes)
+app.use(express.static('public'));
 
 // Start server
 app.listen(PORT, () => {

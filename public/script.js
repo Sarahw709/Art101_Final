@@ -10,16 +10,28 @@ document.addEventListener('DOMContentLoaded', () => {
 // Load all notes from server
 async function loadNotes() {
   try {
+    console.log('Attempting to load notes from /api/notes...');
     const response = await fetch('/api/notes');
+    console.log('Response received. Status:', response.status, response.statusText);
+    console.log('Response headers:', [...response.headers.entries()]);
+    
     if (response.ok) {
-      notes = await response.json();
+      const data = await response.json();
+      console.log('Successfully loaded notes:', data);
+      notes = data;
+      notes.forEach((note, index) => {
+        console.log(`Note ${index}:`, { id: note.id, name: note.name, hasName: !!note.name });
+      });
       displayNotes(notes);
     } else {
-      showError('Failed to load notes');
+      const errorText = await response.text();
+      console.error('Failed to load notes. Status:', response.status, 'Error:', errorText);
+      showError(`Failed to load notes (Status: ${response.status})`);
     }
   } catch (error) {
     console.error('Error loading notes:', error);
-    showError('Failed to connect to server');
+    console.error('Error details:', error.message, error.stack);
+    showError(`Failed to connect to server: ${error.message}. Make sure the server is running on http://localhost:3000`);
   }
 }
 
@@ -37,8 +49,20 @@ function displayNotes(notesToDisplay) {
     new Date(b.createdAt) - new Date(a.createdAt)
   );
 
-  container.innerHTML = sortedNotes.map(note => `
+  container.innerHTML = sortedNotes.map(note => {
+    // Check if name exists and is not empty
+    let nameDisplay = '';
+    if (note.name) {
+      const nameStr = String(note.name).trim();
+      if (nameStr.length > 0) {
+        nameDisplay = `<div class="note-name">${escapeHtml(nameStr)}</div>`;
+        console.log('Displaying name for note', note.id, ':', nameStr); // Debug
+      }
+    }
+    console.log('Note', note.id, 'name field:', note.name, 'will display:', nameDisplay ? 'yes' : 'no'); // Debug
+    return `
     <div class="note-card">
+      ${nameDisplay}
       <div class="note-content">${escapeHtml(note.content)}</div>
       <div class="note-meta">
         <div class="note-date">${formatDate(note.createdAt)}</div>
@@ -48,7 +72,8 @@ function displayNotes(notesToDisplay) {
         </div>
       </div>
     </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 // Filter notes based on search
@@ -59,7 +84,8 @@ function filterNotes() {
   } else {
     const filtered = notes.filter(note => 
       note.content.toLowerCase().includes(searchTerm) ||
-      note.author.toLowerCase().includes(searchTerm)
+      (note.name && note.name.toLowerCase().includes(searchTerm)) ||
+      (note.author && note.author.toLowerCase().includes(searchTerm))
     );
     displayNotes(filtered);
   }
@@ -69,8 +95,9 @@ function filterNotes() {
 function showNewNoteForm() {
   currentEditingId = null;
   document.getElementById('noteContent').value = '';
+  document.getElementById('noteName').value = '';
   document.getElementById('noteModal').style.display = 'block';
-  document.getElementById('noteContent').focus();
+  document.getElementById('noteName').focus();
 }
 
 // Close note form
@@ -78,6 +105,7 @@ function closeNoteForm() {
   document.getElementById('noteModal').style.display = 'none';
   currentEditingId = null;
   document.getElementById('noteContent').value = '';
+  document.getElementById('noteName').value = '';
 }
 
 // Edit note
@@ -87,13 +115,18 @@ async function editNote(id) {
 
   currentEditingId = id;
   document.getElementById('noteContent').value = note.content;
+  document.getElementById('noteName').value = note.name || '';
   document.getElementById('noteModal').style.display = 'block';
-  document.getElementById('noteContent').focus();
+  document.getElementById('noteName').focus();
 }
 
 // Save note (create or update)
 async function saveNote() {
   const content = document.getElementById('noteContent').value.trim();
+  const nameInput = document.getElementById('noteName');
+  const name = nameInput ? nameInput.value.trim() : '';
+  
+  console.log('Saving note - content length:', content.length, 'name:', name); // Debug
   
   if (!content) {
     alert('Please write something!');
@@ -108,7 +141,7 @@ async function saveNote() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ content })
+        body: JSON.stringify({ content, name: name || null })
       });
 
       if (response.ok) {
@@ -119,18 +152,29 @@ async function saveNote() {
       }
     } else {
       // Create new note
+      const noteData = { 
+        content, 
+        name: name && name.length > 0 ? name : null 
+      };
+      console.log('Sending note data:', noteData); // Debug
+      
       const response = await fetch('/api/notes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ content })
+        body: JSON.stringify(noteData)
       });
 
       if (response.ok) {
+        const savedNote = await response.json();
+        console.log('Note saved successfully:', savedNote); // Debug
+        console.log('Saved note has name?', savedNote.name); // Debug
         await loadNotes();
         closeNoteForm();
       } else {
+        const errorData = await response.json();
+        console.error('Failed to save note:', errorData);
         showError('Failed to save note');
       }
     }
@@ -206,6 +250,7 @@ function escapeHtml(text) {
 }
 
 function showError(message) {
+  console.error('Error:', message);
   alert(message); // Simple alert for now
 }
 

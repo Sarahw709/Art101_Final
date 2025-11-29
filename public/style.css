@@ -8,7 +8,11 @@
 
 body {
   font-family: 'Courier New', Courier, monospace;
-  background: #FEFAE0;
+  background: 
+    linear-gradient(rgba(254, 250, 224, 0.4), rgba(254, 250, 224, 0.4)),
+    url('paper.png') no-repeat center center;
+  background-size: cover;
+  background-attachment: fixed;
   color: #6d5e47;
   min-height: 100vh;
   padding: 20px;
@@ -147,7 +151,7 @@ body {
 }
 
 .note-card {
-  background: #f5e6d3;
+  background: #FAEDCD;
   border: 3px solid #6d5e47;
   padding: 20px;
   box-shadow: 
@@ -157,6 +161,16 @@ body {
   min-height: 200px;
   display: flex;
   flex-direction: column;
+}
+
+.note-name {
+  font-size: 0.75rem;
+  color: #6d5e47;
+  font-weight: bold;
+  margin-bottom: 10px;
+  text-transform: capitalize;
+  padding-bottom: 8px;
+  border-bottom: 2px dashed #a68b6b;
 }
 
 .note-content {
@@ -222,7 +236,7 @@ body {
 }
 
 .modal-content {
-  background: #f5e6d3;
+  background: #FAEDCD;
   margin: 5% auto;
   padding: 30px;
   border: 4px solid #6d5e47;
@@ -251,6 +265,25 @@ body {
   font-size: 1rem;
   color: #6d5e47;
   margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-label {
+  font-size: 0.6rem;
+  color: #6d5e47;
+  display: block;
+  margin-bottom: 8px;
+  text-transform: lowercase;
+}
+
+.pixel-input-small {
+  font-size: 0.65rem;
+  padding: 10px 12px;
+  margin-bottom: 15px;
+  background: #FFFDF0;
 }
 
 .pixel-textarea {
