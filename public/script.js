@@ -225,15 +225,20 @@ document.addEventListener('keydown', (e) => {
 function formatDate(dateString) {
   const date = new Date(dateString);
   const now = new Date();
-  const diffTime = Math.abs(now - date);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  // Set both dates to midnight for accurate day comparison
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const noteDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  
+  const diffTime = today - noteDate;
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-  if (diffDays === 1) {
+  if (diffDays === 0) {
     return 'today';
-  } else if (diffDays === 2) {
+  } else if (diffDays === 1) {
     return 'yesterday';
   } else if (diffDays <= 7) {
-    return `${diffDays - 1} days ago`;
+    return `${diffDays} days ago`;
   } else {
     return date.toLocaleDateString('en-US', { 
       year: 'numeric', 
