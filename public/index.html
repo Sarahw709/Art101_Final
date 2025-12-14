@@ -9,12 +9,54 @@
 <body>
   <div class="container">
     <div class="landing-content">
-      <h1 class="pixel-title">time capsule diary</h1>
+      <h1 class="pixel-title" id="typing-title"></h1>
       <button class="pixel-button" onclick="window.location.href='diary.html'">
         write something
       </button>
     </div>
   </div>
+
+  <script>
+    // Typing animation for title
+    const titleElement = document.getElementById('typing-title');
+    const titleText = 'time capsule diary';
+    let charIndex = 0;
+    let isDeleting = false;
+    let typingSpeed = 130; // milliseconds per character
+
+    function typeTitle() {
+      const cursor = '<span class="typing-cursor">|</span>';
+      
+      if (!isDeleting && charIndex < titleText.length) {
+        // Typing forward
+        const currentText = titleText.substring(0, charIndex + 1);
+        titleElement.innerHTML = currentText + cursor;
+        charIndex++;
+        typingSpeed = 130; // Normal typing speed
+      } else if (isDeleting && charIndex > 0) {
+        // Deleting backward
+        const currentText = titleText.substring(0, charIndex - 1);
+        titleElement.innerHTML = currentText + cursor;
+        charIndex--;
+        typingSpeed = 70; // Faster when deleting
+      } else if (charIndex === titleText.length) {
+        // Finished typing, wait then start deleting
+        isDeleting = true;
+        typingSpeed = 2500; // Pause at full text
+        titleElement.innerHTML = titleText + cursor;
+      } else if (charIndex === 0 && isDeleting) {
+        // Finished deleting, start typing again
+        isDeleting = false;
+        typingSpeed = 700; // Pause before restarting
+        titleElement.innerHTML = cursor;
+      }
+
+      setTimeout(typeTitle, typingSpeed);
+    }
+
+    // Start the animation when page loads
+    typeTitle();
+  </script>
 </body>
 </html>
 

@@ -47,6 +47,21 @@ body {
   font-weight: normal;
 }
 
+.typing-cursor {
+  color: #6d5e47;
+  animation: blink 1s infinite;
+  font-weight: normal;
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
+}
+
 /* Buttons */
 .pixel-button {
   font-family: 'Courier New', Courier, monospace;
