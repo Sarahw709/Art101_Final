@@ -9,6 +9,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Load all notes from server
 async function loadNotes() {
+  // Check if page is being accessed via file:// protocol
+  if (window.location.protocol === 'file:') {
+    showError('Please access this page through the server at http://localhost:3000 instead of opening the file directly. Make sure the server is running with "npm start" or "node server.js".');
+    return;
+  }
+
   try {
     console.log('Attempting to load notes from /api/notes...');
     const response = await fetch('/api/notes');
@@ -26,7 +32,7 @@ async function loadNotes() {
     } else {
       const errorText = await response.text();
       console.error('Failed to load notes. Status:', response.status, 'Error:', errorText);
-      showError(`Failed to load notes (Status: ${response.status})`);
+      showError(`Failed to load notes (Status: ${response.status}). Make sure the server is running on http://localhost:3000`);
     }
   } catch (error) {
     console.error('Error loading notes:', error);
@@ -96,6 +102,7 @@ function showNewNoteForm() {
   currentEditingId = null;
   document.getElementById('noteContent').value = '';
   document.getElementById('noteName').value = '';
+  document.getElementById('noteEmail').value = '';
   document.getElementById('noteModal').style.display = 'block';
   document.getElementById('noteName').focus();
 }
@@ -106,6 +113,7 @@ function closeNoteForm() {
   currentEditingId = null;
   document.getElementById('noteContent').value = '';
   document.getElementById('noteName').value = '';
+  document.getElementById('noteEmail').value = '';
 }
 
 // Edit note
@@ -116,6 +124,7 @@ async function editNote(id) {
   currentEditingId = id;
   document.getElementById('noteContent').value = note.content;
   document.getElementById('noteName').value = note.name || '';
+  document.getElementById('noteEmail').value = note.email || '';
   document.getElementById('noteModal').style.display = 'block';
   document.getElementById('noteName').focus();
 }
@@ -125,11 +134,19 @@ async function saveNote() {
   const content = document.getElementById('noteContent').value.trim();
   const nameInput = document.getElementById('noteName');
   const name = nameInput ? nameInput.value.trim() : '';
+  const emailInput = document.getElementById('noteEmail');
+  const email = emailInput ? emailInput.value.trim() : '';
   
-  console.log('Saving note - content length:', content.length, 'name:', name); // Debug
+  console.log('Saving note - content length:', content.length, 'name:', name, 'email:', email); // Debug
   
   if (!content) {
     alert('Please write something!');
+    return;
+  }
+
+  // Validate email if provided
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    alert('Please enter a valid email address');
     return;
   }
 
@@ -141,7 +158,7 @@ async function saveNote() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ content, name: name || null })
+        body: JSON.stringify({ content, name: name || null, email: email || null })
       });
 
       if (response.ok) {
@@ -154,7 +171,8 @@ async function saveNote() {
       // Create new note
       const noteData = { 
         content, 
-        name: name && name.length > 0 ? name : null 
+        name: name && name.length > 0 ? name : null,
+        email: email && email.length > 0 ? email : null
       };
       console.log('Sending note data:', noteData); // Debug
       
@@ -169,7 +187,9 @@ async function saveNote() {
       if (response.ok) {
         const savedNote = await response.json();
         console.log('Note saved successfully:', savedNote); // Debug
-        console.log('Saved note has name?', savedNote.name); // Debug
+        if (email) {
+          alert('Note saved! You will receive an email with this note in exactly one year.');
+        }
         await loadNotes();
         closeNoteForm();
       } else {
