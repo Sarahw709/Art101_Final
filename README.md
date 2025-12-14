@@ -37,7 +37,9 @@ http://localhost:3000
 
 ## Notes Storage
 
-Notes are saved to `notes.json` in the project root. This file persists even when the server stops, so your notes are always safe!
+**Local Development**: Notes are saved to `notes.json` in the project root. This file persists even when the server stops.
+
+**Production (Render)**: Notes are automatically saved to a PostgreSQL database for persistent storage that survives server restarts. The app automatically detects if `DATABASE_URL` is set and uses the database instead of the filesystem.
 
 ## Email Time Capsule Feature
 
@@ -47,8 +49,8 @@ When creating a note, you can optionally provide your email address. After exact
 
 1. Create a `.env` file in the project root (or set environment variables):
    ```bash
-   SMTP_USER=your-email@gmail.com
-   SMTP_PASS=your-app-password
+   SMTP_USER=capsulediary@gmail.com
+   SMTP_PASS=vryptgktmlqqfmdg 
    SMTP_HOST=smtp.gmail.com  # Optional, defaults to Gmail
    SMTP_PORT=587              # Optional, defaults to 587
    ```
@@ -95,4 +97,46 @@ After setting up your email credentials, you can test if everything is working:
    - Email testing endpoints available
 
 **Quick Test**: Create a note with your email, then check `/api/email-status` to see it listed. The email will be sent automatically after exactly one year.
+
+## Deployment to Render
+
+This app is configured to work seamlessly with Render. Notes will persist even when the server restarts.
+
+### Steps to Deploy:
+
+1. **Create a PostgreSQL Database on Render**:
+   - Go to your Render dashboard
+   - Click "New +" → "PostgreSQL"
+   - Choose a name and create the database
+   - Copy the **Internal Database URL** (starts with `postgresql://`)
+
+2. **Create a Web Service on Render**:
+   - Click "New +" → "Web Service"
+   - Connect your GitHub repository
+   - Use these settings:
+     - **Build Command**: `npm install`
+     - **Start Command**: `npm start`
+     - **Environment**: Node
+
+3. **Add Environment Variables**:
+   - In your Web Service settings, go to "Environment"
+   - Add these variables:
+     - `DATABASE_URL` - Paste the Internal Database URL from your PostgreSQL database
+     - `SMTP_USER` - Your Gmail address
+     - `SMTP_PASS` - Your Gmail App Password
+     - `SMTP_HOST` - `smtp.gmail.com` (optional)
+     - `SMTP_PORT` - `587` (optional)
+     - `PORT` - Render will set this automatically, but you can add it if needed
+
+4. **Deploy**:
+   - Click "Create Web Service"
+   - Render will build and deploy your app
+   - Your notes will now persist in the PostgreSQL database!
+
+### Important Notes:
+
+- The app automatically creates the database table on first startup
+- If `DATABASE_URL` is set, it uses PostgreSQL; otherwise, it uses the filesystem (for local dev)
+- Your notes will persist across server restarts and deployments
+- The email feature works the same way in production
 
