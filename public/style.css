@@ -171,12 +171,12 @@ body {
 }
 
 .note-card {
-  background: url('stickynote.png') no-repeat center center;
-  background-size: cover;
-  border: none;
+  background: #FAEDCD;
+  border: 3px solid #6d5e47;
   padding: 20px;
   box-shadow: 
-    4px 4px 0px rgba(0, 0, 0, 0.1);
+    4px 4px 0px #6d5e47,
+    8px 8px 0px rgba(0, 0, 0, 0.1);
   position: relative;
   min-height: 200px;
   display: flex;
@@ -190,7 +190,7 @@ body {
   margin-bottom: 10px;
   text-transform: capitalize;
   padding-bottom: 8px;
-  border-bottom: none;
+  border-bottom: 2px dashed #a68b6b;
 }
 
 .note-content {
@@ -208,7 +208,7 @@ body {
   color: #8b7355;
   margin-top: auto;
   padding-top: 10px;
-  border-top: none;
+  border-top: 2px dashed #a68b6b;
 }
 
 .note-date {

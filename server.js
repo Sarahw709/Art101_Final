@@ -64,7 +64,16 @@ async function initDatabase() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('✓ Database table initialized');
+    await dbPool.query(`
+      CREATE TABLE IF NOT EXISTS unsent_notes (
+        id VARCHAR(255) PRIMARY KEY,
+        content TEXT NOT NULL,
+        name VARCHAR(255),
+        email VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✓ Database tables initialized');
   } catch (error) {
     console.error('Error initializing database:', error);
   }
@@ -349,6 +358,228 @@ app.delete('/api/notes/:id', async (req, res) => {
       res.json({ message: 'Note deleted successfully' });
     } else {
       res.status(500).json({ error: 'Failed to delete note' });
+    }
+  }
+});
+
+// Unsent Notes API Routes
+
+// Get all unsent notes
+app.get('/api/unsent-notes', async (req, res) => {
+  if (useDatabase) {
+    try {
+      const result = await dbPool.query(`
+        SELECT 
+          id,
+          content,
+          name,
+          email,
+          created_at as "createdAt"
+        FROM unsent_notes
+        ORDER BY created_at DESC
+      `);
+      res.json(result.rows);
+    } catch (error) {
+      console.error('Error reading unsent notes from database:', error);
+      res.status(500).json({ error: 'Failed to fetch unsent notes' });
+    }
+  } else {
+    // Filesystem fallback - use a separate file
+    const UNSENT_NOTES_FILE = path.join(__dirname, 'unsent-notes.json');
+    try {
+      if (!fs.existsSync(UNSENT_NOTES_FILE)) {
+        fs.writeFileSync(UNSENT_NOTES_FILE, JSON.stringify([], null, 2));
+      }
+      const data = fs.readFileSync(UNSENT_NOTES_FILE, 'utf8');
+      res.json(JSON.parse(data));
+    } catch (error) {
+      console.error('Error reading unsent notes from file:', error);
+      res.status(500).json({ error: 'Failed to fetch unsent notes' });
+    }
+  }
+});
+
+// Create an unsent note
+app.post('/api/unsent-notes', async (req, res) => {
+  const { content, name, email } = req.body;
+  
+  if (!content || content.trim() === '') {
+    return res.status(400).json({ error: 'Note content is required' });
+  }
+
+  const noteId = Date.now().toString();
+  const now = new Date().toISOString();
+  const trimmedName = (name && typeof name === 'string' && name.trim().length > 0) ? name.trim() : null;
+  const trimmedEmail = (email && typeof email === 'string' && email.trim().length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) ? email.trim() : null;
+
+  const newUnsentNote = {
+    id: noteId,
+    content: content.trim(),
+    name: trimmedName,
+    email: trimmedEmail,
+    createdAt: now
+  };
+
+  if (useDatabase) {
+    try {
+      await dbPool.query(
+        `INSERT INTO unsent_notes (id, content, name, email, created_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [noteId, newUnsentNote.content, newUnsentNote.name, newUnsentNote.email, now]
+      );
+      res.status(201).json(newUnsentNote);
+    } catch (error) {
+      console.error('Error saving unsent note to database:', error);
+      res.status(500).json({ error: 'Failed to save unsent note' });
+    }
+  } else {
+    const UNSENT_NOTES_FILE = path.join(__dirname, 'unsent-notes.json');
+    try {
+      if (!fs.existsSync(UNSENT_NOTES_FILE)) {
+        fs.writeFileSync(UNSENT_NOTES_FILE, JSON.stringify([], null, 2));
+      }
+      const data = fs.readFileSync(UNSENT_NOTES_FILE, 'utf8');
+      const unsentNotes = JSON.parse(data);
+      unsentNotes.push(newUnsentNote);
+      fs.writeFileSync(UNSENT_NOTES_FILE, JSON.stringify(unsentNotes, null, 2));
+      res.status(201).json(newUnsentNote);
+    } catch (error) {
+      console.error('Error saving unsent note to file:', error);
+      res.status(500).json({ error: 'Failed to save unsent note' });
+    }
+  }
+});
+
+// Delete an unsent note
+app.delete('/api/unsent-notes/:id', async (req, res) => {
+  if (useDatabase) {
+    try {
+      const result = await dbPool.query('DELETE FROM unsent_notes WHERE id = $1 RETURNING id', [req.params.id]);
+      if (result.rows.length > 0) {
+        res.json({ message: 'Unsent note deleted successfully' });
+      } else {
+        res.status(404).json({ error: 'Unsent note not found' });
+      }
+    } catch (error) {
+      console.error('Error deleting unsent note from database:', error);
+      res.status(500).json({ error: 'Failed to delete unsent note' });
+    }
+  } else {
+    const UNSENT_NOTES_FILE = path.join(__dirname, 'unsent-notes.json');
+    try {
+      if (!fs.existsSync(UNSENT_NOTES_FILE)) {
+        return res.status(404).json({ error: 'Unsent note not found' });
+      }
+      const data = fs.readFileSync(UNSENT_NOTES_FILE, 'utf8');
+      const unsentNotes = JSON.parse(data);
+      const filteredNotes = unsentNotes.filter(n => n.id !== req.params.id);
+      
+      if (filteredNotes.length === unsentNotes.length) {
+        return res.status(404).json({ error: 'Unsent note not found' });
+      }
+
+      fs.writeFileSync(UNSENT_NOTES_FILE, JSON.stringify(filteredNotes, null, 2));
+      res.json({ message: 'Unsent note deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting unsent note from file:', error);
+      res.status(500).json({ error: 'Failed to delete unsent note' });
+    }
+  }
+});
+
+// Send an unsent note (convert to regular note)
+app.post('/api/unsent-notes/:id/send', async (req, res) => {
+  if (useDatabase) {
+    try {
+      // Get the unsent note
+      const result = await dbPool.query(
+        'SELECT id, content, name, email, created_at FROM unsent_notes WHERE id = $1',
+        [req.params.id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Unsent note not found' });
+      }
+
+      const unsentNote = result.rows[0];
+      const now = new Date().toISOString();
+
+      // Create regular note
+      await dbPool.query(
+        `INSERT INTO notes (id, content, author, name, email, email_sent, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [unsentNote.id, unsentNote.content, 'Anonymous', unsentNote.name, unsentNote.email, false, unsentNote.created_at, now]
+      );
+
+      // Delete from unsent notes
+      await dbPool.query('DELETE FROM unsent_notes WHERE id = $1', [req.params.id]);
+
+      // Send confirmation email if email is provided
+      if (unsentNote.email && resend) {
+        const noteForEmail = {
+          id: unsentNote.id,
+          content: unsentNote.content,
+          name: unsentNote.name,
+          email: unsentNote.email,
+          emailSent: false,
+          createdAt: unsentNote.created_at,
+          updatedAt: now
+        };
+        sendConfirmationEmail(noteForEmail).catch(err => {
+          console.error('Failed to send confirmation email:', err);
+        });
+      }
+
+      res.json({ message: 'Note sent successfully', note: { id: unsentNote.id, content: unsentNote.content } });
+    } catch (error) {
+      console.error('Error sending unsent note:', error);
+      res.status(500).json({ error: 'Failed to send note' });
+    }
+  } else {
+    const UNSENT_NOTES_FILE = path.join(__dirname, 'unsent-notes.json');
+    try {
+      if (!fs.existsSync(UNSENT_NOTES_FILE)) {
+        return res.status(404).json({ error: 'Unsent note not found' });
+      }
+      const data = fs.readFileSync(UNSENT_NOTES_FILE, 'utf8');
+      const unsentNotes = JSON.parse(data);
+      const unsentNote = unsentNotes.find(n => n.id === req.params.id);
+
+      if (!unsentNote) {
+        return res.status(404).json({ error: 'Unsent note not found' });
+      }
+
+      // Create regular note
+      const notes = await readNotes();
+      const now = new Date().toISOString();
+      const newNote = {
+        id: unsentNote.id,
+        content: unsentNote.content,
+        author: 'Anonymous',
+        name: unsentNote.name,
+        email: unsentNote.email,
+        emailSent: false,
+        createdAt: unsentNote.createdAt,
+        updatedAt: now
+      };
+      notes.push(newNote);
+      await writeNotes(notes);
+
+      // Delete from unsent notes
+      const filteredNotes = unsentNotes.filter(n => n.id !== req.params.id);
+      fs.writeFileSync(UNSENT_NOTES_FILE, JSON.stringify(filteredNotes, null, 2));
+
+      // Send confirmation email if email is provided
+      if (unsentNote.email && resend) {
+        sendConfirmationEmail(newNote).catch(err => {
+          console.error('Failed to send confirmation email:', err);
+        });
+      }
+
+      res.json({ message: 'Note sent successfully', note: newNote });
+    } catch (error) {
+      console.error('Error sending unsent note:', error);
+      res.status(500).json({ error: 'Failed to send note' });
     }
   }
 });

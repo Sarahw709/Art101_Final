@@ -108,7 +108,30 @@ function showNewNoteForm() {
 }
 
 // Close note form
-function closeNoteForm() {
+async function closeNoteForm() {
+  const content = document.getElementById('noteContent').value.trim();
+  const name = document.getElementById('noteName').value.trim();
+  const email = document.getElementById('noteEmail').value.trim();
+  
+  // If there's content and we're not editing, save to unsent notes
+  if (content && !currentEditingId) {
+    const shouldSave = confirm('Save this note to unsent notes?');
+    if (shouldSave) {
+      try {
+        await fetch('/api/unsent-notes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ content, name: name || null, email: email || null })
+        });
+        console.log('Note saved to unsent notes');
+      } catch (error) {
+        console.error('Error saving to unsent notes:', error);
+      }
+    }
+  }
+  
   document.getElementById('noteModal').style.display = 'none';
   currentEditingId = null;
   document.getElementById('noteContent').value = '';
@@ -228,9 +251,13 @@ async function deleteNote(id) {
 
 // Close modal when clicking outside
 window.onclick = function(event) {
-  const modal = document.getElementById('noteModal');
-  if (event.target === modal) {
+  const noteModal = document.getElementById('noteModal');
+  const unsentModal = document.getElementById('unsentNotesModal');
+  if (event.target === noteModal) {
     closeNoteForm();
+  }
+  if (event.target === unsentModal) {
+    closeUnsentNotes();
   }
 }
 
@@ -238,8 +265,110 @@ window.onclick = function(event) {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeNoteForm();
+    closeUnsentNotes();
   }
 });
+
+// Show unsent notes modal
+async function showUnsentNotes() {
+  document.getElementById('unsentNotesModal').style.display = 'block';
+  await loadUnsentNotes();
+}
+
+// Close unsent notes modal
+function closeUnsentNotes() {
+  document.getElementById('unsentNotesModal').style.display = 'none';
+}
+
+// Load unsent notes
+async function loadUnsentNotes() {
+  try {
+    const response = await fetch('/api/unsent-notes');
+    if (response.ok) {
+      const unsentNotes = await response.json();
+      displayUnsentNotes(unsentNotes);
+    } else {
+      document.getElementById('unsentNotesContainer').innerHTML = '<div class="empty-state">Error loading unsent notes</div>';
+    }
+  } catch (error) {
+    console.error('Error loading unsent notes:', error);
+    document.getElementById('unsentNotesContainer').innerHTML = '<div class="empty-state">Error loading unsent notes</div>';
+  }
+}
+
+// Display unsent notes
+function displayUnsentNotes(unsentNotes) {
+  const container = document.getElementById('unsentNotesContainer');
+  
+  if (unsentNotes.length === 0) {
+    container.innerHTML = '<div class="empty-state">No unsent notes yet.</div>';
+    return;
+  }
+
+  // Sort by date (newest first)
+  const sortedNotes = [...unsentNotes].sort((a, b) => 
+    new Date(b.createdAt) - new Date(a.createdAt)
+  );
+
+  container.innerHTML = sortedNotes.map(note => {
+    const nameDisplay = note.name ? `<div class="note-name">${escapeHtml(note.name)}</div>` : '';
+    return `
+    <div class="note-card">
+      ${nameDisplay}
+      <div class="note-content">${escapeHtml(note.content)}</div>
+      <div class="note-meta">
+        <div class="note-date">${formatDate(note.createdAt)}</div>
+        <div class="note-actions">
+          <button class="pixel-button pixel-button-secondary" onclick="sendUnsentNote('${note.id}')">send</button>
+          <button class="pixel-button pixel-button-secondary" onclick="deleteUnsentNote('${note.id}')">delete</button>
+        </div>
+      </div>
+    </div>
+    `;
+  }).join('');
+}
+
+// Send an unsent note (convert to regular note)
+async function sendUnsentNote(id) {
+  try {
+    const response = await fetch(`/api/unsent-notes/${id}/send`, {
+      method: 'POST'
+    });
+
+    if (response.ok) {
+      await loadUnsentNotes(); // Reload unsent notes
+      await loadNotes(); // Reload regular notes
+      alert('Note sent successfully!');
+    } else {
+      showError('Failed to send note');
+    }
+  } catch (error) {
+    console.error('Error sending unsent note:', error);
+    showError('Failed to send note');
+  }
+}
+
+// Delete an unsent note
+async function deleteUnsentNote(id) {
+  if (!confirm('Are you sure you want to delete this unsent note?')) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/unsent-notes/${id}`, {
+      method: 'DELETE'
+    });
+
+    if (response.ok) {
+      await loadUnsentNotes();
+    } else {
+      showError('Failed to delete note');
+    }
+  } catch (error) {
+    console.error('Error deleting unsent note:', error);
+    showError('Failed to delete note');
+  }
+}
 
 // Helper functions
 function formatDate(dateString) {
