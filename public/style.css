@@ -120,13 +120,6 @@ body {
   gap: 20px;
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
 .diary-header .pixel-title {
   font-size: 1.8rem;
   margin-bottom: 0;
