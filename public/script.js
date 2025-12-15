@@ -282,17 +282,24 @@ function closeUnsentNotes() {
 
 // Load unsent notes
 async function loadUnsentNotes() {
+  const container = document.getElementById('unsentNotesContainer');
   try {
+    console.log('Loading unsent notes...');
     const response = await fetch('/api/unsent-notes');
+    console.log('Response status:', response.status, response.statusText);
+    
     if (response.ok) {
       const unsentNotes = await response.json();
+      console.log('Unsent notes loaded:', unsentNotes);
       displayUnsentNotes(unsentNotes);
     } else {
-      document.getElementById('unsentNotesContainer').innerHTML = '<div class="empty-state">Error loading unsent notes</div>';
+      const errorText = await response.text();
+      console.error('Failed to load unsent notes. Status:', response.status, 'Error:', errorText);
+      container.innerHTML = `<div class="empty-state">Error loading unsent notes (Status: ${response.status})</div>`;
     }
   } catch (error) {
     console.error('Error loading unsent notes:', error);
-    document.getElementById('unsentNotesContainer').innerHTML = '<div class="empty-state">Error loading unsent notes</div>';
+    container.innerHTML = `<div class="empty-state">Error loading unsent notes: ${error.message}. Make sure the server is running.</div>`;
   }
 }
 
