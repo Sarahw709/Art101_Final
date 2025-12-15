@@ -12,7 +12,7 @@
       <h1 class="pixel-title">time capsule diary</h1>
       <div class="header-buttons">
         <button class="pixel-button" onclick="showNewNoteForm()">create new note</button>
-        <button class="pixel-button pixel-button-unsent" onclick="showUnsentNotes()">unsent notes</button>
+        <button class="pixel-button pixel-button-unsent" onclick="window.location.href='unsent.html'">unsent notes</button>
         <button class="pixel-button pixel-button-secondary" onclick="window.location.href='index.html'">back to title</button>
       </div>
     </header>
@@ -67,16 +67,6 @@
       </div>
     </div>
 
-    <!-- Unsent Notes Modal -->
-    <div id="unsentNotesModal" class="modal">
-      <div class="modal-content">
-        <span class="close" onclick="closeUnsentNotes()">&times;</span>
-        <h2 class="pixel-subtitle">unsent notes</h2>
-        <div id="unsentNotesContainer" class="notes-container">
-          <p class="loading-text">Loading unsent notes...</p>
-        </div>
-      </div>
-    </div>
   </div>
 
   <script src="script.js"></script>
