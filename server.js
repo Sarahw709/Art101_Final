@@ -210,20 +210,23 @@ app.post('/api/notes', async (req, res) => {
       console.log('Note saved to database, returning:', newNote);
       res.status(201).json(newNote);
       
-      // Send confirmation email if email is provided (don't wait for it)
+      // Send confirmation email if email is provided (completely async, don't wait)
       if (trimmedEmail) {
-        console.log(`Sending confirmation email to ${trimmedEmail}...`);
-        sendConfirmationEmail(newNote)
-          .then(sent => {
-            if (sent) {
-              console.log(`✓ Confirmation email sent successfully to ${trimmedEmail}`);
-            } else {
-              console.log(`⚠ Confirmation email not sent (email service may not be configured)`);
-            }
-          })
-          .catch(err => {
-            console.error('✗ Failed to send confirmation email:', err);
-          });
+        console.log(`Queueing confirmation email to ${trimmedEmail}...`);
+        // Use setImmediate to ensure this runs after the response is sent
+        setImmediate(() => {
+          sendConfirmationEmail(newNote)
+            .then(sent => {
+              if (sent) {
+                console.log(`✓ Confirmation email sent successfully to ${trimmedEmail}`);
+              } else {
+                console.log(`⚠ Confirmation email not sent`);
+              }
+            })
+            .catch(err => {
+              console.error('✗ Failed to send confirmation email:', err.message || err);
+            });
+        });
       }
     } catch (error) {
       console.error('Error saving note to database:', error);
@@ -236,20 +239,23 @@ app.post('/api/notes', async (req, res) => {
       console.log('Note saved to file, returning:', newNote);
       res.status(201).json(newNote);
       
-      // Send confirmation email if email is provided (don't wait for it)
+      // Send confirmation email if email is provided (completely async, don't wait)
       if (trimmedEmail) {
-        console.log(`Sending confirmation email to ${trimmedEmail}...`);
-        sendConfirmationEmail(newNote)
-          .then(sent => {
-            if (sent) {
-              console.log(`✓ Confirmation email sent successfully to ${trimmedEmail}`);
-            } else {
-              console.log(`⚠ Confirmation email not sent (email service may not be configured)`);
-            }
-          })
-          .catch(err => {
-            console.error('✗ Failed to send confirmation email:', err);
-          });
+        console.log(`Queueing confirmation email to ${trimmedEmail}...`);
+        // Use setImmediate to ensure this runs after the response is sent
+        setImmediate(() => {
+          sendConfirmationEmail(newNote)
+            .then(sent => {
+              if (sent) {
+                console.log(`✓ Confirmation email sent successfully to ${trimmedEmail}`);
+              } else {
+                console.log(`⚠ Confirmation email not sent`);
+              }
+            })
+            .catch(err => {
+              console.error('✗ Failed to send confirmation email:', err.message || err);
+            });
+        });
       }
     } else {
       res.status(500).json({ error: 'Failed to save note' });
@@ -400,27 +406,16 @@ async function sendConfirmationEmail(note) {
       text: `Thank You for Leaving a Note${nameDisplay}!\n\nThank you for leaving a note, you will be reminded of this exactly one year from now :)\n\nThis email was sent automatically from your Time Capsule Diary.`
     };
 
-    console.log(`[${new Date().toISOString()}] Attempting to send confirmation email to ${note.email}...`);
-    console.log(`[${new Date().toISOString()}] Email config - From: ${emailConfig.auth.user}, To: ${note.email}`);
+    console.log(`Attempting to send confirmation email to ${note.email}...`);
     
-    // Send email with timeout protection
-    console.log(`[${new Date().toISOString()}] Creating sendMail promise...`);
+    // Send email with shorter timeout for cloud environments
     const sendPromise = transporter.sendMail(mailOptions);
-    console.log(`[${new Date().toISOString()}] SendMail promise created, setting up timeout...`);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Email sending timed out after 10 seconds')), 10000)
+    );
     
-    const timeoutPromise = new Promise((_, reject) => {
-      console.log(`[${new Date().toISOString()}] Timeout timer started (20 seconds)`);
-      setTimeout(() => {
-        console.log(`[${new Date().toISOString()}] ⏰ TIMEOUT REACHED - Email send timed out`);
-        reject(new Error('Email sending timed out after 20 seconds'));
-      }, 20000);
-    });
-    
-    console.log(`[${new Date().toISOString()}] Starting Promise.race...`);
-    const result = await Promise.race([sendPromise, timeoutPromise]);
-    console.log(`[${new Date().toISOString()}] Promise.race completed`);
-    
-    console.log(`[${new Date().toISOString()}] ✓ Confirmation email sent successfully to ${note.email} for note ${note.id}`);
+    await Promise.race([sendPromise, timeoutPromise]);
+    console.log(`✓ Confirmation email sent successfully to ${note.email} for note ${note.id}`);
     return true;
   } catch (error) {
     console.error(`✗ Error sending confirmation email to ${note.email}:`, error.message || error);
@@ -577,10 +572,7 @@ app.get('/api/test-email', async (req, res) => {
   }
 
   try {
-    // Test email connection
-    await transporter.verify();
-    
-    // Send a test email
+    // Send a test email (skip verification as it may timeout on Render)
     const mailOptions = {
       from: emailConfig.auth.user,
       to: testEmail,
