@@ -381,20 +381,6 @@ async function sendConfirmationEmail(note) {
   }
 
   try {
-    // Try to verify connection (optional - skip if it times out)
-    try {
-      console.log(`Verifying SMTP connection before sending confirmation email...`);
-      await withTimeout(
-        transporter.verify(),
-        3000, // 3 second timeout for verification
-        'SMTP connection verification timed out'
-      );
-      console.log('SMTP connection verified');
-    } catch (verifyError) {
-      console.log('⚠ SMTP verification failed/timed out, proceeding with send anyway...');
-      // Continue anyway - many SMTP servers work fine even if verify() fails
-    }
-
     const nameDisplay = note.name ? ` ${note.name}` : '';
     const mailOptions = {
       from: emailConfig.auth.user,
@@ -414,17 +400,33 @@ async function sendConfirmationEmail(note) {
       text: `Thank You for Leaving a Note${nameDisplay}!\n\nThank you for leaving a note, you will be reminded of this exactly one year from now :)\n\nThis email was sent automatically from your Time Capsule Diary.`
     };
 
-    console.log(`Attempting to send confirmation email to ${note.email}...`);
-    await withTimeout(
-      transporter.sendMail(mailOptions),
-      20000, // 20 second timeout (increased for cloud environments)
-      'Email sending timed out after 20 seconds'
-    );
-    console.log(`✓ Confirmation email sent successfully to ${note.email} for note ${note.id}`);
+    console.log(`[${new Date().toISOString()}] Attempting to send confirmation email to ${note.email}...`);
+    console.log(`[${new Date().toISOString()}] Email config - From: ${emailConfig.auth.user}, To: ${note.email}`);
+    
+    // Send email with timeout protection
+    console.log(`[${new Date().toISOString()}] Creating sendMail promise...`);
+    const sendPromise = transporter.sendMail(mailOptions);
+    console.log(`[${new Date().toISOString()}] SendMail promise created, setting up timeout...`);
+    
+    const timeoutPromise = new Promise((_, reject) => {
+      console.log(`[${new Date().toISOString()}] Timeout timer started (20 seconds)`);
+      setTimeout(() => {
+        console.log(`[${new Date().toISOString()}] ⏰ TIMEOUT REACHED - Email send timed out`);
+        reject(new Error('Email sending timed out after 20 seconds'));
+      }, 20000);
+    });
+    
+    console.log(`[${new Date().toISOString()}] Starting Promise.race...`);
+    const result = await Promise.race([sendPromise, timeoutPromise]);
+    console.log(`[${new Date().toISOString()}] Promise.race completed`);
+    
+    console.log(`[${new Date().toISOString()}] ✓ Confirmation email sent successfully to ${note.email} for note ${note.id}`);
     return true;
   } catch (error) {
     console.error(`✗ Error sending confirmation email to ${note.email}:`, error.message || error);
-    console.error('Error details:', error);
+    if (error.stack) {
+      console.error('Error stack:', error.stack);
+    }
     return false;
   }
 }
