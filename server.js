@@ -381,14 +381,19 @@ async function sendConfirmationEmail(note) {
   }
 
   try {
-    // Verify connection first
-    console.log(`Verifying SMTP connection before sending confirmation email...`);
-    await withTimeout(
-      transporter.verify(),
-      5000,
-      'SMTP connection verification timed out'
-    );
-    console.log('SMTP connection verified');
+    // Try to verify connection (optional - skip if it times out)
+    try {
+      console.log(`Verifying SMTP connection before sending confirmation email...`);
+      await withTimeout(
+        transporter.verify(),
+        3000, // 3 second timeout for verification
+        'SMTP connection verification timed out'
+      );
+      console.log('SMTP connection verified');
+    } catch (verifyError) {
+      console.log('⚠ SMTP verification failed/timed out, proceeding with send anyway...');
+      // Continue anyway - many SMTP servers work fine even if verify() fails
+    }
 
     const nameDisplay = note.name ? ` ${note.name}` : '';
     const mailOptions = {
@@ -412,8 +417,8 @@ async function sendConfirmationEmail(note) {
     console.log(`Attempting to send confirmation email to ${note.email}...`);
     await withTimeout(
       transporter.sendMail(mailOptions),
-      15000, // 15 second timeout
-      'Email sending timed out after 15 seconds'
+      20000, // 20 second timeout (increased for cloud environments)
+      'Email sending timed out after 20 seconds'
     );
     console.log(`✓ Confirmation email sent successfully to ${note.email} for note ${note.id}`);
     return true;
