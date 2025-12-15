@@ -381,6 +381,7 @@ async function sendConfirmationEmail(note) {
     
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
+      replyTo: process.env.REPLY_TO_EMAIL || 'capsulediary@gmail.com',
       to: note.email,
       subject: 'Thank You for Your Time Capsule Note',
       html: `
@@ -440,6 +441,7 @@ async function sendTimeCapsuleEmail(note) {
     
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
+      replyTo: process.env.REPLY_TO_EMAIL || 'capsulediary@gmail.com',
       to: note.email,
       subject: `Your Time Capsule Note from One Year Ago${nameDisplay}`,
       html: `
@@ -563,6 +565,7 @@ app.get('/api/test-email', async (req, res) => {
   try {
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
+      replyTo: process.env.REPLY_TO_EMAIL || 'capsulediary@gmail.com',
       to: testEmail,
       subject: 'Time Capsule Diary - Email Test',
       html: `
