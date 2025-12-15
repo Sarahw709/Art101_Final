@@ -115,17 +115,18 @@ async function closeNoteForm() {
   
   // If there's content and we're not editing, save to unsent notes
   if (content && !currentEditingId) {
-    const shouldSave = confirm('Save this note to unsent notes?');
+    const shouldSave = confirm('Save this note to unsent notes?\n\nNote: Your note will be saved anonymously (name and email will not be included).');
     if (shouldSave) {
       try {
+        // Save only content - make it anonymous
         await fetch('/api/unsent-notes', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ content, name: name || null, email: email || null })
+          body: JSON.stringify({ content }) // Don't send name or email
         });
-        console.log('Note saved to unsent notes');
+        console.log('Note saved to unsent notes (anonymously)');
       } catch (error) {
         console.error('Error saving to unsent notes:', error);
       }
@@ -318,10 +319,9 @@ function displayUnsentNotes(unsentNotes) {
   );
 
   container.innerHTML = sortedNotes.map(note => {
-    const nameDisplay = note.name ? `<div class="note-name">${escapeHtml(note.name)}</div>` : '';
+    // Unsent notes are anonymous - don't display name or email
     return `
     <div class="note-card">
-      ${nameDisplay}
       <div class="note-content">${escapeHtml(note.content)}</div>
       <div class="note-meta">
         <div class="note-date">${formatDate(note.createdAt)}</div>

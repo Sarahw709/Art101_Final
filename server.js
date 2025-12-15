@@ -399,9 +399,9 @@ app.get('/api/unsent-notes', async (req, res) => {
   }
 });
 
-// Create an unsent note
+// Create an unsent note (anonymous - name and email are not saved)
 app.post('/api/unsent-notes', async (req, res) => {
-  const { content, name, email } = req.body;
+  const { content } = req.body;
   
   if (!content || content.trim() === '') {
     return res.status(400).json({ error: 'Note content is required' });
@@ -409,14 +409,13 @@ app.post('/api/unsent-notes', async (req, res) => {
 
   const noteId = Date.now().toString();
   const now = new Date().toISOString();
-  const trimmedName = (name && typeof name === 'string' && name.trim().length > 0) ? name.trim() : null;
-  const trimmedEmail = (email && typeof email === 'string' && email.trim().length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) ? email.trim() : null;
 
+  // Unsent notes are anonymous - don't save name or email
   const newUnsentNote = {
     id: noteId,
     content: content.trim(),
-    name: trimmedName,
-    email: trimmedEmail,
+    name: null,
+    email: null,
     createdAt: now
   };
 
@@ -424,8 +423,8 @@ app.post('/api/unsent-notes', async (req, res) => {
     try {
       await dbPool.query(
         `INSERT INTO unsent_notes (id, content, name, email, created_at)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [noteId, newUnsentNote.content, newUnsentNote.name, newUnsentNote.email, now]
+         VALUES ($1, $2, NULL, NULL, $3)`,
+        [noteId, newUnsentNote.content, now]
       );
       res.status(201).json(newUnsentNote);
     } catch (error) {
