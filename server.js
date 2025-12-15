@@ -34,6 +34,7 @@ if (useDatabase) {
 // Get API key from: https://resend.com/api-keys
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const FROM_EMAIL = process.env.FROM_EMAIL || 'onboarding@resend.dev'; // Default Resend domain for testing
+const FROM_NAME = process.env.FROM_NAME || 'Time Capsule Diary'; // Display name for emails
 
 // Create Resend client (only if API key is provided)
 let resend = null;
@@ -380,7 +381,7 @@ async function sendConfirmationEmail(note) {
     console.log(`Attempting to send confirmation email to ${note.email}...`);
     
     const { data, error } = await resend.emails.send({
-      from: FROM_EMAIL,
+      from: `${FROM_NAME} <${FROM_EMAIL}>`,
       replyTo: process.env.REPLY_TO_EMAIL || 'capsulediary@gmail.com',
       to: note.email,
       subject: 'Thank You for Your Time Capsule Note',
@@ -440,7 +441,7 @@ async function sendTimeCapsuleEmail(note) {
     const nameDisplay = note.name ? ` (${note.name})` : '';
     
     const { data, error } = await resend.emails.send({
-      from: FROM_EMAIL,
+      from: `${FROM_NAME} <${FROM_EMAIL}>`,
       replyTo: process.env.REPLY_TO_EMAIL || 'capsulediary@gmail.com',
       to: note.email,
       subject: `Your Time Capsule Note from One Year Ago${nameDisplay}`,
@@ -564,7 +565,7 @@ app.get('/api/test-email', async (req, res) => {
 
   try {
     const { data, error } = await resend.emails.send({
-      from: FROM_EMAIL,
+      from: `${FROM_NAME} <${FROM_EMAIL}>`,
       replyTo: process.env.REPLY_TO_EMAIL || 'capsulediary@gmail.com',
       to: testEmail,
       subject: 'Time Capsule Diary - Email Test',
