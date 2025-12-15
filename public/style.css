@@ -129,6 +129,26 @@ body {
   display: flex;
   gap: 15px;
   flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.pixel-button-unsent {
+  background: #d4c5a9;
+  color: #FFFDF0;
+  border: 4px solid #6d5e47;
+  box-shadow: 
+    4px 4px 0px #6d5e47,
+    8px 8px 0px rgba(0, 0, 0, 0.1);
+}
+
+.pixel-button-unsent:hover {
+  box-shadow: 
+    2px 2px 0px #6d5e47,
+    4px 4px 0px rgba(0, 0, 0, 0.1);
+}
+
+.pixel-button-unsent:active {
+  box-shadow: 0px 0px 0px #6d5e47;
 }
 
 /* Search */
