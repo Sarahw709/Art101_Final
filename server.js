@@ -45,7 +45,12 @@ const emailConfig = {
 // Create email transporter (only if credentials are provided)
 let transporter = null;
 if (emailConfig.auth.user && emailConfig.auth.pass) {
-  transporter = nodemailer.createTransport(emailConfig);
+  transporter = nodemailer.createTransport({
+    ...emailConfig,
+    connectionTimeout: 10000, // 10 seconds
+    greetingTimeout: 10000, // 10 seconds
+    socketTimeout: 10000, // 10 seconds
+  });
   console.log('✓ Email service configured');
   console.log(`  SMTP Host: ${emailConfig.host}:${emailConfig.port}`);
   console.log(`  From Address: ${emailConfig.auth.user}`);
@@ -353,17 +358,38 @@ app.delete('/api/notes/:id', async (req, res) => {
   }
 });
 
+// Helper function to add timeout to promises
+function withTimeout(promise, timeoutMs, errorMessage) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => 
+      setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+    )
+  ]);
+}
+
 // Send confirmation email when a note is created with an email
 async function sendConfirmationEmail(note) {
   if (!transporter) {
+    console.log('No transporter available for confirmation email');
     return false;
   }
 
   if (!note.email) {
+    console.log('No email address in note for confirmation email');
     return false;
   }
 
   try {
+    // Verify connection first
+    console.log(`Verifying SMTP connection before sending confirmation email...`);
+    await withTimeout(
+      transporter.verify(),
+      5000,
+      'SMTP connection verification timed out'
+    );
+    console.log('SMTP connection verified');
+
     const nameDisplay = note.name ? ` ${note.name}` : '';
     const mailOptions = {
       from: emailConfig.auth.user,
@@ -383,11 +409,17 @@ async function sendConfirmationEmail(note) {
       text: `Thank You for Leaving a Note${nameDisplay}!\n\nThank you for leaving a note, you will be reminded of this exactly one year from now :)\n\nThis email was sent automatically from your Time Capsule Diary.`
     };
 
-    await transporter.sendMail(mailOptions);
-    console.log(`Confirmation email sent to ${note.email} for note ${note.id}`);
+    console.log(`Attempting to send confirmation email to ${note.email}...`);
+    await withTimeout(
+      transporter.sendMail(mailOptions),
+      15000, // 15 second timeout
+      'Email sending timed out after 15 seconds'
+    );
+    console.log(`✓ Confirmation email sent successfully to ${note.email} for note ${note.id}`);
     return true;
   } catch (error) {
-    console.error(`Error sending confirmation email to ${note.email}:`, error);
+    console.error(`✗ Error sending confirmation email to ${note.email}:`, error.message || error);
+    console.error('Error details:', error);
     return false;
   }
 }
