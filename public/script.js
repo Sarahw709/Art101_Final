@@ -108,13 +108,17 @@ function showNewNoteForm() {
 }
 
 // Close note form
-async function closeNoteForm() {
+// skipUnsentCheck: if true, don't prompt to save to unsent notes (used when saving successfully)
+async function closeNoteForm(skipUnsentCheck = false) {
   const content = document.getElementById('noteContent').value.trim();
   const name = document.getElementById('noteName').value.trim();
   const email = document.getElementById('noteEmail').value.trim();
   
-  // If there's content and we're not editing, save to unsent notes
-  if (content && !currentEditingId) {
+  // Only prompt to save to unsent notes if:
+  // - Not skipping the check (i.e., cancel was clicked, not save)
+  // - There's content
+  // - We're not editing an existing note
+  if (!skipUnsentCheck && content && !currentEditingId) {
     const shouldSave = confirm('Save this note to unsent notes?\n\nNote: Your note will be saved anonymously (name and email will not be included).');
     if (shouldSave) {
       try {
@@ -187,7 +191,7 @@ async function saveNote() {
 
       if (response.ok) {
         await loadNotes();
-        closeNoteForm();
+        closeNoteForm(true); // Skip unsent notes check since we just saved
       } else {
         showError('Failed to update note');
       }
@@ -215,7 +219,7 @@ async function saveNote() {
           alert('Note saved! You will receive an email with this note in exactly one year.');
         }
         await loadNotes();
-        closeNoteForm();
+        closeNoteForm(true); // Skip unsent notes check since we just saved
       } else {
         const errorData = await response.json();
         console.error('Failed to save note:', errorData);
