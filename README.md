@@ -45,23 +45,31 @@ http://localhost:3000
 
 When creating a note, you can optionally provide your email address. After exactly one year, you'll receive an email with your note from the past!
 
-### Setting Up Email
+### Setting Up Email (Resend)
 
-1. Create a `.env` file in the project root (or set environment variables):
-   ```bash
-   SMTP_USER=capsulediary@gmail.com
-   SMTP_PASS=vryptgktmlqqfmdg 
-   SMTP_HOST=smtp.gmail.com  # Optional, defaults to Gmail
-   SMTP_PORT=587              # Optional, defaults to 587
-   ```
+The app uses [Resend](https://resend.com) for email delivery, which works reliably on cloud platforms like Render.
 
-2. **For Gmail users**: You'll need to create an [App Password](https://support.google.com/accounts/answer/185833) instead of using your regular password:
-   - Go to your Google Account settings
-   - Enable 2-Step Verification
-   - Generate an App Password for "Mail"
-   - Use that App Password as `SMTP_PASS`
+1. **Get a Resend API Key**:
+   - Sign up for a free account at https://resend.com (3,000 emails/month free)
+   - Go to https://resend.com/api-keys
+   - Create a new API key and copy it
 
-3. The server will automatically check daily at 9:00 AM and send emails for notes that are exactly one year old.
+2. **Set up your domain** (optional but recommended):
+   - In Resend, go to "Domains" and add your domain
+   - Verify your domain (follow Resend's instructions)
+   - This allows you to send from your own email address (e.g., `noreply@yourdomain.com`)
+
+3. **Set environment variables**:
+   - **Local development**: Create a `.env` file:
+     ```bash
+     RESEND_API_KEY=re_your_api_key_here
+     FROM_EMAIL=onboarding@resend.dev  # Use your verified domain email in production
+     ```
+   - **Render**: Add these in your Web Service's Environment tab:
+     - `RESEND_API_KEY` - Your Resend API key
+     - `FROM_EMAIL` - Your verified domain email (or `onboarding@resend.dev` for testing)
+
+4. The server will automatically check daily at 9:00 AM and send emails for notes that are exactly one year old.
 
 **Note**: If email is not configured, the app will still work normally - you just won't receive time capsule emails. The server will log a warning on startup if email is not configured.
 
@@ -73,7 +81,7 @@ After setting up your email credentials, you can test if everything is working:
    ```
    http://localhost:3000/api/test-email?email=your@email.com
    ```
-   This will send a test email to verify your SMTP configuration is correct.
+   This will send a test email to verify your Resend configuration is correct.
 
 2. **Check Email Status** - See the current email configuration and statistics:
    ```
@@ -122,10 +130,8 @@ This app is configured to work seamlessly with Render. Notes will persist even w
    - In your Web Service settings, go to "Environment"
    - Add these variables:
      - `DATABASE_URL` - Paste the Internal Database URL from your PostgreSQL database
-     - `SMTP_USER` - Your Gmail address
-     - `SMTP_PASS` - Your Gmail App Password
-     - `SMTP_HOST` - `smtp.gmail.com` (optional)
-     - `SMTP_PORT` - `587` (optional)
+     - `RESEND_API_KEY` - Your Resend API key (get it at https://resend.com/api-keys)
+     - `FROM_EMAIL` - Your verified domain email in Resend (or `onboarding@resend.dev` for testing)
      - `PORT` - Render will set this automatically, but you can add it if needed
 
 4. **Deploy**:

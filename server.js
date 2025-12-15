@@ -4,7 +4,7 @@ require('dotenv').config();
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const cron = require('node-cron');
 const { Pool } = require('pg');
 
@@ -30,32 +30,20 @@ if (useDatabase) {
   }
 }
 
-// Email configuration (using environment variables or defaults)
-// For Gmail, you'll need to use an App Password: https://support.google.com/accounts/answer/185833
-const emailConfig = {
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: process.env.SMTP_PORT || 587,
-  secure: false, // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || ''
-  }
-};
+// Email configuration using Resend API
+// Get API key from: https://resend.com/api-keys
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
+const FROM_EMAIL = process.env.FROM_EMAIL || 'onboarding@resend.dev'; // Default Resend domain for testing
 
-// Create email transporter (only if credentials are provided)
-let transporter = null;
-if (emailConfig.auth.user && emailConfig.auth.pass) {
-  transporter = nodemailer.createTransport({
-    ...emailConfig,
-    connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 10000, // 10 seconds
-    socketTimeout: 10000, // 10 seconds
-  });
-  console.log('✓ Email service configured');
-  console.log(`  SMTP Host: ${emailConfig.host}:${emailConfig.port}`);
-  console.log(`  From Address: ${emailConfig.auth.user}`);
+// Create Resend client (only if API key is provided)
+let resend = null;
+if (RESEND_API_KEY) {
+  resend = new Resend(RESEND_API_KEY);
+  console.log('✓ Email service configured (Resend)');
+  console.log(`  From Address: ${FROM_EMAIL}`);
 } else {
-  console.warn('⚠ Email service not configured. Set SMTP_USER and SMTP_PASS environment variables to enable email functionality.');
+  console.warn('⚠ Email service not configured. Set RESEND_API_KEY and FROM_EMAIL environment variables to enable email functionality.');
+  console.warn('  Get your API key at: https://resend.com/api-keys');
 }
 
 // Initialize database table if using PostgreSQL
@@ -376,8 +364,8 @@ function withTimeout(promise, timeoutMs, errorMessage) {
 
 // Send confirmation email when a note is created with an email
 async function sendConfirmationEmail(note) {
-  if (!transporter) {
-    console.log('No transporter available for confirmation email');
+  if (!resend) {
+    console.log('No Resend client available for confirmation email');
     return false;
   }
 
@@ -388,8 +376,11 @@ async function sendConfirmationEmail(note) {
 
   try {
     const nameDisplay = note.name ? ` ${note.name}` : '';
-    const mailOptions = {
-      from: emailConfig.auth.user,
+    
+    console.log(`Attempting to send confirmation email to ${note.email}...`);
+    
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
       to: note.email,
       subject: 'Thank You for Your Time Capsule Note',
       html: `
@@ -404,32 +395,25 @@ async function sendConfirmationEmail(note) {
         </div>
       `,
       text: `Thank You for Leaving a Note${nameDisplay}!\n\nThank you for leaving a note, you will be reminded of this exactly one year from now :)\n\nThis email was sent automatically from your Time Capsule Diary.`
-    };
+    });
 
-    console.log(`Attempting to send confirmation email to ${note.email}...`);
-    
-    // Send email with shorter timeout for cloud environments
-    const sendPromise = transporter.sendMail(mailOptions);
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Email sending timed out after 10 seconds')), 10000)
-    );
-    
-    await Promise.race([sendPromise, timeoutPromise]);
+    if (error) {
+      console.error(`✗ Error sending confirmation email to ${note.email}:`, error);
+      return false;
+    }
+
     console.log(`✓ Confirmation email sent successfully to ${note.email} for note ${note.id}`);
     return true;
   } catch (error) {
     console.error(`✗ Error sending confirmation email to ${note.email}:`, error.message || error);
-    if (error.stack) {
-      console.error('Error stack:', error.stack);
-    }
     return false;
   }
 }
 
 // Email sending function
 async function sendTimeCapsuleEmail(note) {
-  if (!transporter) {
-    console.log('Email transporter not configured, skipping email send');
+  if (!resend) {
+    console.log('Email service not configured, skipping email send');
     return false;
   }
 
@@ -453,8 +437,9 @@ async function sendTimeCapsuleEmail(note) {
 
   try {
     const nameDisplay = note.name ? ` (${note.name})` : '';
-    const mailOptions = {
-      from: emailConfig.auth.user,
+    
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
       to: note.email,
       subject: `Your Time Capsule Note from One Year Ago${nameDisplay}`,
       html: `
@@ -479,9 +464,13 @@ ${note.name ? `- ${note.name}` : ''}
 
 This email was sent automatically from your Time Capsule Diary.
       `
-    };
+    });
 
-    await transporter.sendMail(mailOptions);
+    if (error) {
+      console.error(`Error sending time capsule email to ${note.email}:`, error);
+      return false;
+    }
+
     console.log(`Time capsule email sent to ${note.email} for note ${note.id}`);
     
     // Mark email as sent
@@ -509,7 +498,7 @@ This email was sent automatically from your Time Capsule Diary.
 
 // Function to check and send emails for notes that are 1 year old
 async function checkAndSendTimeCapsuleEmails() {
-  if (!transporter) {
+  if (!resend) {
     console.log('Email not configured, skipping email check');
     return; // Email not configured
   }
@@ -556,14 +545,14 @@ cron.schedule('0 9 * * *', () => {
 
 // Test endpoint to verify email configuration
 app.get('/api/test-email', async (req, res) => {
-  if (!transporter) {
+  if (!resend) {
     return res.status(503).json({ 
       error: 'Email service not configured',
-      message: 'Set SMTP_USER and SMTP_PASS environment variables to enable email functionality.'
+      message: 'Set RESEND_API_KEY and FROM_EMAIL environment variables to enable email functionality. Get your API key at https://resend.com/api-keys'
     });
   }
 
-  const testEmail = req.query.email || emailConfig.auth.user;
+  const testEmail = req.query.email;
   if (!testEmail) {
     return res.status(400).json({ 
       error: 'No email address provided',
@@ -572,9 +561,8 @@ app.get('/api/test-email', async (req, res) => {
   }
 
   try {
-    // Send a test email (skip verification as it may timeout on Render)
-    const mailOptions = {
-      from: emailConfig.auth.user,
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
       to: testEmail,
       subject: 'Time Capsule Diary - Email Test',
       html: `
@@ -586,9 +574,17 @@ app.get('/api/test-email', async (req, res) => {
         </div>
       `,
       text: `Email Test Successful!\n\nYour email configuration is working correctly.\n\nThe Time Capsule Diary email feature is ready to send your notes after one year.\n\nThis is a test email sent at ${new Date().toLocaleString()}.`
-    };
+    });
 
-    await transporter.sendMail(mailOptions);
+    if (error) {
+      console.error('Email test failed:', error);
+      return res.status(500).json({ 
+        error: 'Failed to send test email',
+        message: error.message || 'Unknown error',
+        details: 'Check your Resend API key and FROM_EMAIL configuration.'
+      });
+    }
+
     res.json({ 
       success: true, 
       message: `Test email sent successfully to ${testEmail}`,
@@ -599,17 +595,17 @@ app.get('/api/test-email', async (req, res) => {
     res.status(500).json({ 
       error: 'Failed to send test email',
       message: error.message,
-      details: 'Check your SMTP credentials and network connection.'
+      details: 'Check your Resend API key and network connection.'
     });
   }
 });
 
 // Test endpoint to manually trigger email check (for testing)
 app.post('/api/test-email-check', async (req, res) => {
-  if (!transporter) {
+  if (!resend) {
     return res.status(503).json({ 
       error: 'Email service not configured',
-      message: 'Set SMTP_USER and SMTP_PASS environment variables to enable email functionality.'
+      message: 'Set RESEND_API_KEY and FROM_EMAIL environment variables to enable email functionality.'
     });
   }
 
@@ -640,10 +636,9 @@ app.get('/api/email-status', async (req, res) => {
     const notesEmailSent = notes.filter(n => n.email && n.emailSent);
 
     res.json({
-      configured: transporter !== null,
-      smtpHost: emailConfig.host,
-      smtpPort: emailConfig.port,
-      fromAddress: emailConfig.auth.user || 'Not configured',
+      configured: resend !== null,
+      emailService: 'Resend',
+      fromAddress: FROM_EMAIL || 'Not configured',
       stats: {
         totalNotes: notes.length,
         notesWithEmail: notesWithEmail.length,
